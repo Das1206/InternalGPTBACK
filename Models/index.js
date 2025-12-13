@@ -1,5 +1,14 @@
 const Sequelize = require("sequelize");
 
+// Check if mysql2 is available
+let mysql2Available = false;
+try {
+  require("mysql2");
+  mysql2Available = true;
+} catch (e) {
+  console.error("mysql2 package not found. Please ensure it's installed.");
+}
+
 // Validate MYSQL_URI is set
 if (!process.env.MYSQL_URI) {
   const errorMsg = "ERROR: MYSQL_URI environment variable is not set! Please set it in Vercel environment variables.";
@@ -31,26 +40,46 @@ if (!process.env.MYSQL_URI) {
 }
 
 // TiDB connection configuration
-const sequelize = new Sequelize(process.env.MYSQL_URI, {
-  dialect: "mysql",
-  dialectModule: require("mysql2"),
-  logging: process.env.NODE_ENV === "development" ? console.log : false,
-  pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000,
-  },
-  dialectOptions: {
-    ssl: process.env.DB_SSL === "true" ? {
-      rejectUnauthorized: false,
-    } : false,
-    connectTimeout: 60000,
-  },
-  retry: {
-    max: 3,
-  },
-});
+// Note: Sequelize will automatically use mysql2 if available
+// We don't need to explicitly specify dialectModule
+let sequelize;
+if (!mysql2Available) {
+  const errorMsg = "mysql2 package is not installed. Please install it: npm install mysql2";
+  console.error(errorMsg);
+  sequelize = {
+    authenticate: async () => { throw new Error(errorMsg); },
+    sync: async () => { throw new Error(errorMsg); },
+  };
+} else {
+  try {
+    sequelize = new Sequelize(process.env.MYSQL_URI, {
+    dialect: "mysql",
+    logging: process.env.NODE_ENV === "development" ? console.log : false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+    },
+    dialectOptions: {
+      ssl: process.env.DB_SSL === "true" ? {
+        rejectUnauthorized: false,
+      } : false,
+      connectTimeout: 60000,
+    },
+      retry: {
+        max: 3,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to initialize Sequelize:", error.message);
+    // Create a dummy sequelize that will fail gracefully
+    sequelize = {
+      authenticate: async () => { throw new Error("Sequelize initialization failed: " + error.message); },
+      sync: async () => { throw new Error("Sequelize initialization failed: " + error.message); },
+    };
+  }
+}
 const db = {};
 
 db.Sequelize = Sequelize;
