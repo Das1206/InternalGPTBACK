@@ -1,8 +1,25 @@
 const Sequelize = require("sequelize");
 
+// TiDB connection configuration
 const sequelize = new Sequelize(process.env.MYSQL_URI, {
   dialect: "mysql",
-  logging: false,
+  dialectModule: require("mysql2"),
+  logging: process.env.NODE_ENV === "development" ? console.log : false,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+  },
+  dialectOptions: {
+    ssl: process.env.DB_SSL === "true" ? {
+      rejectUnauthorized: false,
+    } : false,
+    connectTimeout: 60000,
+  },
+  retry: {
+    max: 3,
+  },
 });
 const db = {};
 
