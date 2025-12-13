@@ -2,8 +2,32 @@ const Sequelize = require("sequelize");
 
 // Validate MYSQL_URI is set
 if (!process.env.MYSQL_URI) {
-  console.error("ERROR: MYSQL_URI environment variable is not set!");
-  throw new Error("MYSQL_URI environment variable is required");
+  const errorMsg = "ERROR: MYSQL_URI environment variable is not set! Please set it in Vercel environment variables.";
+  console.error(errorMsg);
+  // Create a dummy sequelize instance that will fail gracefully when used
+  // This allows the app to start and show a proper error message
+  const sequelize = {
+    authenticate: async () => { 
+      throw new Error(errorMsg); 
+    },
+    sync: async () => { 
+      throw new Error(errorMsg); 
+    },
+  };
+  const db = { Sequelize, sequelize };
+  // Export empty models so the app doesn't crash
+  db.Users = null;
+  db.GPTModels = null;
+  db.TokenHistory = null;
+  db.Chats = null;
+  db.Assistants = null;
+  db.ChatHistory = null;
+  db.Favorites = null;
+  db.AssignGPTModel = null;
+  db.AssignAssistant = null;
+  db.Department = null;
+  module.exports = db;
+  // Don't throw - let the app start and show errors when DB is actually used
 }
 
 // TiDB connection configuration

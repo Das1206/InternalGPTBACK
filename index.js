@@ -29,7 +29,15 @@ try {
 
   require("./Startup/Cors")(app);
   require("./Middlware/Log")(app);
-  require("./Startup/DB");
+  
+  // Initialize database connection (non-blocking for serverless)
+  // Don't let DB initialization crash the app - it will be lazy-loaded when needed
+  try {
+    require("./Startup/DB");
+  } catch (dbError) {
+    console.error("Database initialization error (non-fatal):", dbError.message);
+    Log.error("Database initialization error (non-fatal):", dbError);
+  }
 
   // Health check endpoint (before routes)
   app.get("/api", async (req, res) => {
@@ -38,6 +46,23 @@ try {
 
   // Static file serving
   app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
+
+  // Middleware to check database availability before routes that need it
+  app.use((req, res, next) => {
+    // Skip DB check for health check and static file endpoints
+    if (req.path === "/api" || req.path === "/" || req.path.startsWith("/api/uploads")) {
+      return next();
+    }
+    
+    // Check if MYSQL_URI is set
+    if (!process.env.MYSQL_URI) {
+      return res.status(503).json({ 
+        message: "Database configuration missing. Please set MYSQL_URI environment variable.",
+        error: "MYSQL_URI is not configured"
+      });
+    }
+    next();
+  });
 
   // Initialize routes - MUST be before error handling middleware
   require("./Startup/Routes")(app);
@@ -58,9 +83,6 @@ try {
     res.status(404).json({ message: "Route not found" });
   });
 
-  // For Vercel serverless functions, export the app
-  module.exports = app;
-
   // For local development, start the server
   if (require.main === module) {
     const PORT = process.env.PORT || 8000;
@@ -69,6 +91,8 @@ try {
 } catch (error) {
   Log.error("App initialization failed: " + error);
   console.error("Error during startup:", error);
-  // Still export app for serverless, but it will show errors
-  module.exports = app;
 }
+
+// ALWAYS export app for Vercel serverless functions, even if initialization failed
+// This must be outside the try-catch to ensure it's always executed
+module.exports = app;
