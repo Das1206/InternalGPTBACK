@@ -54,11 +54,22 @@ app.use(async (req, res, next) => {
     next();
   } catch (error) {
     console.error("Database not ready:", error);
+    Log.error("Database connection error:", error);
     res.status(503).json({ 
       message: "Database connection unavailable. Please try again later.",
       error: process.env.NODE_ENV === "development" ? error.message : undefined
     });
   }
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error("Unhandled error:", error);
+  Log.error("Unhandled error:", error);
+  res.status(500).json({ 
+    message: "Internal server error",
+    error: process.env.NODE_ENV === "development" ? error.message : undefined
+  });
 });
 
 // Initialize routes

@@ -82,8 +82,12 @@ const getDbInitPromise = () => {
 };
 
 // For serverless environments, we need to ensure DB is ready before handling requests
-// This will be called when the module is loaded
-getDbInitPromise();
+// Start initialization in background, but don't block or crash if it fails
+// The ensureDbReady() function will handle retries when actually needed
+getDbInitPromise().catch((error) => {
+  Log.error("Background database initialization failed, will retry on first request:", error);
+  // Don't throw - let ensureDbReady handle it when actually needed
+});
 
 // Export function to ensure DB is ready
 module.exports.ensureDbReady = async () => {

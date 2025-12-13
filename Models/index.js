@@ -1,5 +1,11 @@
 const Sequelize = require("sequelize");
 
+// Validate MYSQL_URI is set
+if (!process.env.MYSQL_URI) {
+  console.error("ERROR: MYSQL_URI environment variable is not set!");
+  throw new Error("MYSQL_URI environment variable is required");
+}
+
 // TiDB connection configuration
 const sequelize = new Sequelize(process.env.MYSQL_URI, {
   dialect: "mysql",
